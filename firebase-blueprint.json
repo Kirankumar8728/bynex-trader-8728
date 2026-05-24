@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "integer" },
+        "displayName": { "type": "string" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Account": {
+      "title": "Account",
+      "description": "User trading account details",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "balance": { "type": "number" },
+        "currency": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["userId", "balance", "currency", "isActive"]
+    },
+    "Trade": {
+      "title": "Trade",
+      "description": "Trading position history",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "contractId": { "type": "string" },
+        "symbol": { "type": "string" },
+        "type": { "type": "string" },
+        "buyPrice": { "type": "number" },
+        "sellPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["open", "won", "lost", "sold"] },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["userId", "contractId", "symbol", "type", "buyPrice", "status", "createdAt"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "Withdrawal request details",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "method": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "paid", "rejected"] },
+        "timestamp": { "type": "integer" },
+        "details": { "type": "object" }
+      },
+      "required": ["userId", "amount", "method", "status", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/users/{userId}/accounts/{accountId}": {
+      "schema": "Account",
+      "description": "Trading accounts for the user"
+    },
+    "/users/{userId}/trades/{tradeId}": {
+      "schema": "Trade",
+      "description": "Trading positions for the user"
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": "Withdrawal",
+      "description": "Global withdrawal requests"
+    },
+    "/test/{connection}": {
+       "schema": { "type": "object" },
+       "description": "Connection test path"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Bynex Trader",
+  "description": "A trading platform for Deriv API.",
+  "requestFramePermissions": []
+}

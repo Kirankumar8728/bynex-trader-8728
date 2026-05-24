@@ -1,0 +1,52 @@
+{
+  "name": "bynex-trader",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "start": "tsx server.ts",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^1.45.0",
+    "@tailwindcss/vite": "^4.2.0",
+    "@types/archiver": "^7.0.0",
+    "archiver": "^7.0.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "firebase": "^12.10.0",
+    "firebase-admin": "^13.7.0",
+    "firebase-functions": "^7.1.1",
+    "framer-motion": "^12.34.3",
+    "klinecharts": "^9.0.0",
+    "lightweight-charts": "^5.1.0",
+    "lucide-react": "^0.575.0",
+    "node-cron": "^4.2.1",
+    "node-telegram-bot-api": "^0.67.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.0",
+    "technicalindicators": "^3.1.0",
+    "terser": "^5.46.0",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
+    "@types/node": "^25.3.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/node-telegram-bot-api": "^0.64.14",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "regenerator-runtime": "^0.14.1",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.0"
+  }
+}
