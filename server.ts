@@ -103,7 +103,7 @@ try {
 // Telegram Bot & Engagements
 // ============================================================================
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const APP_URL = "https://ais-dev-z23cim5lqjemrj363e6x2r-81414754947.asia-east1.run.app";
+const APP_URL = process.env.APP_URL || "https://bynex-trader-8728.vercel.app";
 
 let bot: TelegramBot | null = null;
 let isStoppingBot = false;
@@ -261,29 +261,25 @@ process.on('SIGTERM', async () => {
 });
 
 // ============================================================================
-// Express Application & API Routes
+// Express Middleware & API Routes (Module-level for Vercel serverless compatibility)
 // ============================================================================
-async function startServer() {
-  await ensureAppIcon();
-  initTelegramBot().catch(err => console.error("Initial Telegram bot start failed:", err));
-  app.set('trust proxy', 1);
-  app.use(session({
-    secret: process.env.SESSION_SECRET || 'a-very-secure-random-secret',
-    resave: false,
-    saveUninitialized: false,
-    cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, maxAge: 3600000 }
-  }));
-  const PORT = 3000;
+app.set('trust proxy', 1);
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'a-very-secure-random-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, maxAge: 3600000 }
+}));
 
-  app.use(express.json());
-  
-  // Request logging middleware
-  app.use((req, res, next) => {
-    if (req.path.startsWith('/api')) {
-      console.log(`[API] ${req.method} ${req.path}`);
-    }
-    next();
-  });
+app.use(express.json());
+
+// Request logging middleware
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    console.log(`[API] ${req.method} ${req.path}`);
+  }
+  next();
+});
 
   // API routes
   app.get("/api/download-source", (req: express.Request, res: express.Response) => {
@@ -679,6 +675,15 @@ async function startServer() {
     }
   });
 
+// ============================================================================
+// Server Bootstrap (only runs outside Vercel serverless)
+// ============================================================================
+async function startServer() {
+  const PORT = 3000;
+
+  await ensureAppIcon();
+  initTelegramBot().catch(err => console.error("Initial Telegram bot start failed:", err));
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -720,21 +725,12 @@ async function startServer() {
     }
   });
 
-  if (process.env.VERCEL !== "1") {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  }
-
-  // Graceful shutdown
-  process.on('SIGTERM', async () => {
-    if (bot) await bot.stopPolling();
-    process.exit(0);
-  });
-  process.on('SIGINT', async () => {
-    if (bot) await bot.stopPolling();
-    process.exit(0);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
-startServer();
+// Only start the full server when NOT on Vercel
+if (process.env.VERCEL !== "1") {
+  startServer();
+}
