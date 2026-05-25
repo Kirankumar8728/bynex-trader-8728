@@ -431,10 +431,7 @@ const App: React.FC = () => {
           if (import.meta.env.DEV) {
             console.error("[CASHIER] Failed to fetch withdrawals:", errorMsg);
           }
-          // Only show custom alert if it's not a background refresh
-          if (retries > 1) {
-             setCustomAlert(`Could not load withdrawal history. Please check your connection.`);
-          }
+          // Suppress alert on initial background failures to improve user experience.
           setWithdrawalRequests([]);
         }
       }
