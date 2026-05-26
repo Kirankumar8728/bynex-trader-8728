@@ -2054,6 +2054,9 @@ const App: React.FC = () => {
               <button onClick={signup} className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-sm uppercase hover:bg-white/10 transition-colors">
                 Register
               </button>
+              <p className="text-[10px] text-gray-500 text-center px-2">
+                Registration opens in a new tab. After creating your Deriv account, come back here and click <strong className="text-gray-400">Login</strong>.
+              </p>
             </div>
             
             <button onClick={() => setShowLoginModal(false)} className="w-full text-[10px] font-black text-gray-500 uppercase hover:text-white transition-colors py-2">
