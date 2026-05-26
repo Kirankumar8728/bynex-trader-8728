@@ -104,7 +104,9 @@ const App: React.FC = () => {
           returnParams.delete('error_description');
           
           const sanitizedSearch = returnParams.toString() ? `?${returnParams.toString()}` : '';
-          window.history.replaceState({}, '', currentUrl.pathname + sanitizedSearch);
+          // If we're stuck on /callback, redirect to home instead
+          const pathname = currentUrl.pathname.startsWith('/callback') ? '/' : currentUrl.pathname;
+          window.history.replaceState({}, '', pathname + sanitizedSearch);
         }
       };
 
