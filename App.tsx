@@ -53,6 +53,7 @@ const TIMEFRAMES: Timeframe[] = ['1t', '1m', '2m', '3m', '5m', '10m', '15m', '30
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.TRADE);
+  const isProcessingCallbackRef = useRef(false);
   
   const Footer = () => (
     <div className="py-2 px-4 text-center opacity-50">
@@ -80,6 +81,9 @@ const App: React.FC = () => {
     const errorParam = urlParams.get('error');
 
     if (errorParam || (code && state)) {
+      if (isProcessingCallbackRef.current) return;
+      isProcessingCallbackRef.current = true;
+
       const processCallback = async () => {
         try {
           const { parseOAuthCallback } = await import('./src/services/derivApiService');
@@ -107,6 +111,8 @@ const App: React.FC = () => {
           // If we're stuck on /callback, redirect to home instead
           const pathname = currentUrl.pathname.startsWith('/callback') ? '/' : currentUrl.pathname;
           window.history.replaceState({}, '', pathname + sanitizedSearch);
+        } finally {
+          isProcessingCallbackRef.current = false;
         }
       };
 
