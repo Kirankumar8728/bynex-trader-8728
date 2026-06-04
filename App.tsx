@@ -154,6 +154,7 @@ const App: React.FC = () => {
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showAllAccounts, setShowAllAccounts] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSignupModal, setShowSignupModal] = useState(false);
   const [showMarketSelector, setShowMarketSelector] = useState(false);
   const [copied, setCopied] = useState(false);
   const [referralBalance, setReferralBalance] = useState(0);
@@ -620,6 +621,43 @@ const App: React.FC = () => {
       case AppView.TRADE:
         return (
           <div className="relative h-full flex flex-col bg-[#0b0e14] flex-1 overflow-y-auto pb-28">
+            {showSignupModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-6" onClick={() => setShowSignupModal(false)}>
+          <div className="bg-[#121620] border border-white/10 rounded-3xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
+                <ExternalLink className="w-8 h-8 text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-wide">Create Deriv Account</h3>
+                <p className="text-xs text-gray-400 mt-2 font-medium leading-relaxed">
+                  Bynex Trader uses Deriv for secure trading. You will be redirected to Deriv to create an account.
+                </p>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 mt-4 text-left">
+                  <p className="text-[10px] font-bold text-yellow-500 uppercase mb-2">Important Steps:</p>
+                  <ol className="text-[10px] text-gray-400 space-y-2 font-medium list-decimal pl-4">
+                    <li>Create your account on Deriv.com</li>
+                    <li>Verify your email address</li>
+                    <li><strong>Come back to Bynex Trader</strong> and click Login</li>
+                  </ol>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowSignupModal(false);
+                  signup();
+                }} 
+                className="w-full py-4 bg-red-600 rounded-2xl font-black text-sm uppercase shadow-lg shadow-red-600/20 hover:bg-red-500 transition-colors mt-4"
+              >
+                Proceed to Deriv
+              </button>
+              <button onClick={() => setShowSignupModal(false)} className="w-full text-[10px] font-black text-gray-500 uppercase hover:text-white transition-colors py-2">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
             {/* Market Header */}
             <div className="sticky top-2 left-2 right-2 flex items-center justify-between z-50 pointer-events-none mx-2">
               <div className="pointer-events-auto">
@@ -1498,7 +1536,7 @@ const App: React.FC = () => {
 
             {!account ? (
               <div className="space-y-3">
-                <button onClick={signup} className="w-full py-4 bg-red-600 rounded-2xl font-black text-sm uppercase shadow-lg shadow-red-600/20 hover:bg-red-500 transition-colors">Register</button>
+                <button onClick={() => setShowSignupModal(true)} className="w-full py-4 bg-red-600 rounded-2xl font-black text-sm uppercase shadow-lg shadow-red-600/20 hover:bg-red-500 transition-colors">Register</button>
                 <button onClick={login} className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-sm uppercase hover:bg-white/10 transition-colors">Login</button>
               </div>
             ) : (
@@ -2021,7 +2059,7 @@ const App: React.FC = () => {
 
               {!account && (
                 <div className="space-y-3">
-                  <button onClick={signup} className="w-full py-4 bg-red-600 rounded-2xl font-black text-sm uppercase shadow-lg shadow-red-600/20 hover:bg-red-500 transition-colors">Register</button>
+                  <button onClick={() => setShowSignupModal(true)} className="w-full py-4 bg-red-600 rounded-2xl font-black text-sm uppercase shadow-lg shadow-red-600/20 hover:bg-red-500 transition-colors">Register</button>
                   <button onClick={login} className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-sm uppercase hover:bg-white/10 transition-colors">Login</button>
                 </div>
               )}
@@ -2057,7 +2095,7 @@ const App: React.FC = () => {
               <button onClick={login} className="w-full py-4 bg-red-600 rounded-2xl font-black text-sm uppercase shadow-lg shadow-red-600/20 hover:bg-red-500 transition-colors">
                 Login
               </button>
-              <button onClick={signup} className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-sm uppercase hover:bg-white/10 transition-colors">
+              <button onClick={() => { setShowLoginModal(false); setShowSignupModal(true); }} className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl font-black text-sm uppercase hover:bg-white/10 transition-colors">
                 Register
               </button>
               <p className="text-[10px] text-gray-500 text-center px-2">
