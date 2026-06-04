@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense, lazy } from 'react';
 import { AppView, Timeframe, TradeType, WithdrawalRequest } from './types';
 import { getCurrencyConfig } from './constants';
-import { auth } from './firebase';
+
 import Navigation from './components/Navigation';
 import MarketSelector from './components/MarketSelector';
 import TradeForm from './components/TradeForm';
@@ -309,14 +309,12 @@ const App: React.FC = () => {
         }
         return;
       }
-
       try {
-        const token = await auth.currentUser?.getIdToken();
         const res = await fetch('/api/process-trade', {
           method: 'POST',
+          credentials: 'include',
           headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             userId: account.loginid,
@@ -331,8 +329,7 @@ const App: React.FC = () => {
           // Remove from manual set after successful processing
           manualTradeIds.current.delete(Number(contract.contract_id));
           
-          // Fetch updated balance from server after successful trade recording
-          const balRes = await fetch(`/api/referral-balance/${account.loginid}`);
+          const balRes = await fetch(`/api/referral-balance/${account.loginid}`, { credentials: 'include' });
           const balData = await balRes.json();
           setReferralBalance(balData.balance || 0);
         }
@@ -349,6 +346,7 @@ const App: React.FC = () => {
       // Send welcome message
       fetch('/api/send-welcome-message', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: account.loginid })
       }).then(() => setHasSentWelcome(true)).catch(err => console.error("Failed to send welcome message:", err));
@@ -372,7 +370,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (account?.loginid) {
-      fetch(`/api/referral-balance/${account.loginid}`)
+      fetch(`/api/referral-balance/${account.loginid}`, { credentials: 'include' })
         .then(res => res.json())
         .then(data => setReferralBalance(data.balance || 0))
         .catch(err => console.error("Failed to fetch balance:", err));
@@ -385,6 +383,7 @@ const App: React.FC = () => {
       const user = window.Telegram.WebApp.initDataUnsafe.user;
       fetch('/api/user-telegram', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           telegramId: user.id,
@@ -403,6 +402,7 @@ const App: React.FC = () => {
         }
         const apiUrl = `${window.location.origin}/api/w-requests?t=${Date.now()}`;
         const res = await fetch(apiUrl, {
+          credentials: 'include',
           headers: {
             'Accept': 'application/json',
             'Cache-Control': 'no-cache'
@@ -462,6 +462,7 @@ const App: React.FC = () => {
     try {
       const res = await fetch('/api/w-requests', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req)
       });
@@ -485,6 +486,7 @@ const App: React.FC = () => {
     try {
       const res = await fetch(`/api/w-requests/${id}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, rejectionReason: reason })
       });

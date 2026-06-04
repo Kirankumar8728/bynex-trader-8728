@@ -46,7 +46,7 @@ export const TIMEFRAME_GRANULARITY: Record<string, number> = {
   '24h': 86400,
 };
 
-export const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public?app_id=32FjINZV8sXfdKQcVvnZf";
+export const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
 
 export const CURRENCY_CONFIG: Record<string, { step: string; min: string; decimals: number }> = {
   'USD': { step: '0.01', min: '0.1', decimals: 2 },

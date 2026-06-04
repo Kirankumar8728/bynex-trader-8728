@@ -15,7 +15,7 @@ declare module 'express-session' {
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import admin from "firebase-admin";
+import { sql } from "@vercel/postgres";
 import archiver from "archiver";
 
 import { GoogleGenAI } from "@google/genai";
@@ -75,28 +75,45 @@ async function ensureAppIcon() {
 }
 
 // ============================================================================
-// Firebase Integration
+// Vercel Postgres Integration & Table Setup
 // ============================================================================
-// Initialize Firebase Admin
-let db: admin.firestore.Firestore | undefined;
 
-try {
-  if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-      }),
-    });
-    db = admin.firestore();
-    console.log("Firebase Admin initialized successfully");
-  } else {
-    console.warn("Firebase Admin environment variables missing. Firestore features will be disabled.");
+async function setupDatabase() {
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS balances (
+        userId VARCHAR(255) PRIMARY KEY,
+        balance DECIMAL(20, 2) DEFAULT 0
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS withdrawals (
+        id SERIAL PRIMARY KEY,
+        userId VARCHAR(255),
+        amount DECIMAL(20, 2),
+        method VARCHAR(50),
+        status VARCHAR(50),
+        timestamp BIGINT,
+        rejectionReason TEXT,
+        details JSONB
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS processed_trades (
+        contractId VARCHAR(255) PRIMARY KEY,
+        userId VARCHAR(255),
+        profit DECIMAL(20, 2),
+        processedAt BIGINT
+      );
+    `;
+    console.log("Postgres tables verified/created successfully.");
+  } catch (error) {
+    console.error("Failed to initialize Postgres tables:", error);
   }
-} catch (error) {
-  console.error("Failed to initialize Firebase Admin:", error);
 }
+
+// Call setup once on startup
+setupDatabase();
 
 // ============================================================================
 // Secure Endpoints Middleware & Rate Limiting
@@ -286,35 +303,33 @@ app.use((req, res, next) => {
   // Cashier & Balance Routes
   // ============================================================================
   const handleCreateWithdrawal = async (req: express.Request, res: express.Response) => {
-    if (!db) return res.status(500).json({ error: "Firestore not initialized" });
-    
     const withdrawal = req.body;
-    withdrawal.timestamp = new Date().toISOString();
-    withdrawal.status = 'pending';
+    withdrawal.timestamp = Date.now();
+    withdrawal.status = withdrawal.status || 'pending';
     
     try {
-      const userRef = db.collection("balances").doc(withdrawal.userId);
-      const withdrawalRef = db.collection("withdrawals").doc();
+      // 1. Check and deduct balance
+      const updateResult = await sql`
+        UPDATE balances 
+        SET balance = balance - ${withdrawal.amount}
+        WHERE userId = ${withdrawal.userId} AND balance >= ${withdrawal.amount}
+        RETURNING balance;
+      `;
 
-      await db.runTransaction(async (t) => {
-        const userDoc = await t.get(userRef);
-        const currentBalance = userDoc.exists ? (userDoc.data()?.balance || 0) : 0;
+      if (updateResult.rowCount === 0) {
+        return res.status(400).json({ success: false, error: "Insufficient balance or user not found" });
+      }
 
-        if (currentBalance < withdrawal.amount) {
-          throw new Error("Insufficient balance");
-        }
+      // 2. Save withdrawal request
+      const { rows } = await sql`
+        INSERT INTO withdrawals (userId, amount, method, status, timestamp, details)
+        VALUES (${withdrawal.userId}, ${withdrawal.amount}, ${withdrawal.method}, ${withdrawal.status}, ${withdrawal.timestamp}, ${JSON.stringify(withdrawal)})
+        RETURNING id
+      `;
 
-        // Deduct balance
-        t.set(userRef, {
-          balance: admin.firestore.FieldValue.increment(-withdrawal.amount)
-        }, { merge: true });
-
-        // Save withdrawal request
-        t.set(withdrawalRef, withdrawal);
-      });
-
-      res.json({ success: true, id: withdrawalRef.id });
+      res.json({ success: true, id: rows[0].id });
     } catch (error: any) {
+      console.error("Create withdrawal error:", error);
       res.status(500).json({ success: false, error: error.message || "Failed to save withdrawal" });
     }
   };
@@ -323,26 +338,11 @@ app.use((req, res, next) => {
   app.post("/api/withdrawals", isAuthenticated, withdrawalLimiter, handleCreateWithdrawal);
 
   const handleGetWithdrawals = async (req: express.Request, res: express.Response) => {
-    const requestId = Math.random().toString(36).substring(7);
-    console.log(`[API] [${requestId}] Starting handleGetWithdrawals`);
-    
-    if (!db) {
-      console.warn(`[API] [${requestId}] Firestore not initialized for /api/w-requests`);
-      return res.json([]);
-    }
-    
-    console.log(`[API] [${requestId}] Fetching withdrawals from Firestore...`);
-    const startTime = Date.now();
     try {
-      const snapshot = await db.collection("withdrawals").orderBy("timestamp", "desc").limit(50).get();
-      const duration = Date.now() - startTime;
-      console.log(`[API] [${requestId}] Firestore query took ${duration}ms. Found ${snapshot.size} docs.`);
-      
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      console.log(`[API] [${requestId}] Sending ${data.length} records`);
-      res.json(data);
+      const { rows } = await sql`SELECT * FROM withdrawals ORDER BY timestamp DESC LIMIT 50`;
+      res.json(rows);
     } catch (error: any) {
-      console.error(`[API] [${requestId}] Failed to fetch withdrawals from Firestore:`, error.message || error);
+      console.error("Get withdrawals error:", error);
       res.status(500).json({ error: "Failed to connect to withdrawal database", details: error.message });
     }
   };
@@ -351,34 +351,30 @@ app.use((req, res, next) => {
   app.get("/api/withdrawals", isAuthenticated, handleGetWithdrawals);
 
   const handleUpdateWithdrawal = async (req: express.Request, res: express.Response) => {
-    if (!db) return res.status(500).json({ error: "Firestore not initialized" });
-    
     const { id } = req.params;
     const { status, rejectionReason } = req.body;
     
     try {
-      const withdrawalRef = db.collection("withdrawals").doc(id as string);
+      const { rows } = await sql`SELECT * FROM withdrawals WHERE id = ${id as string}`;
+      if (rows.length === 0) return res.status(404).json({ error: "Withdrawal not found" });
+      
+      const withdrawal = rows[0];
+      if (withdrawal.status !== 'pending') return res.status(400).json({ error: "Withdrawal already processed" });
 
-      await db.runTransaction(async (t) => {
-        const doc = await t.get(withdrawalRef);
-        if (!doc.exists) throw new Error("Withdrawal not found");
+      await sql`UPDATE withdrawals SET status = ${status as string}, rejectionReason = ${rejectionReason ? String(rejectionReason) : null} WHERE id = ${id as string}`;
 
-        const data = doc.data();
-        if (data?.status !== 'pending') throw new Error("Withdrawal already processed");
-
-        t.update(withdrawalRef, { status, rejectionReason: rejectionReason || null });
-
-        // Refund balance if rejected
-        if (status === 'rejected') {
-          const userRef = db.collection("balances").doc(data?.userId);
-          t.set(userRef, {
-            balance: admin.firestore.FieldValue.increment(data?.amount)
-          }, { merge: true });
-        }
-      });
+      // Refund balance if rejected
+      if (status === 'rejected') {
+        await sql`
+          UPDATE balances 
+          SET balance = balance + ${withdrawal.amount}
+          WHERE userId = ${withdrawal.userId}
+        `;
+      }
 
       res.json({ success: true });
     } catch (error: any) {
+      console.error("Update withdrawal error:", error);
       res.status(500).json({ success: false, error: error.message || "Failed to update withdrawal" });
     }
   };
@@ -387,13 +383,11 @@ app.use((req, res, next) => {
   app.patch("/api/withdrawals/:id", isAuthenticated, handleUpdateWithdrawal);
 
   app.get("/api/referral-balance/:userId", isAuthenticated, async (req: express.Request, res: express.Response) => {
-    if (!db) return res.json({ balance: 0 }); // Return 0 if Firestore is not initialized
-    
     const { userId } = req.params;
     try {
-      const doc = await db.collection("balances").doc(userId as string).get();
-      if (doc.exists) {
-        res.json(doc.data());
+      const { rows } = await sql`SELECT balance FROM balances WHERE userId = ${userId as string}`;
+      if (rows.length > 0) {
+        res.json({ balance: Number(rows[0].balance) });
       } else {
         res.json({ balance: 0 });
       }
@@ -406,8 +400,6 @@ app.use((req, res, next) => {
 
 
   app.post("/api/process-trade", async (req: express.Request, res: express.Response) => {
-    if (!db) return res.status(500).json({ error: "Firestore not initialized" });
-    
     const { userId, contractId, profit, buyPrice, appId, referrerId } = req.body;
     if (!userId || !contractId) return res.status(400).json({ error: "Missing data" });
 
@@ -423,42 +415,33 @@ app.use((req, res, next) => {
     }
 
     try {
-      const tradeRef = db.collection("balances").doc(userId).collection("trades").doc(contractId.toString());
-      
-      // Determine who gets the commission (Referrer gets priority, then user as cashback)
+      // Idempotency check
+      const tradeCheck = await sql`SELECT contractId FROM processed_trades WHERE contractId = ${contractId.toString()}`;
+      if ((tradeCheck.rowCount || 0) > 0) {
+         return res.json({ success: false, reason: "Trade already processed" });
+      }
+
       const commissionTargetId = referrerId || userId;
-      const targetRef = db.collection("balances").doc(commissionTargetId);
-      let calculatedCommission = 0;
+      const earnings = (parseFloat(profit) || parseFloat(buyPrice || '0')) * 0.01;
 
-      await db.runTransaction(async (t) => {
-        const tradeDoc = await t.get(tradeRef);
-        if (tradeDoc.exists) {
-          throw new Error("Duplicate trade");
-        }
+      // Upsert balance
+      await sql`
+        INSERT INTO balances (userId, balance) 
+        VALUES (${commissionTargetId}, ${earnings})
+        ON CONFLICT (userId) 
+        DO UPDATE SET balance = balances.balance + EXCLUDED.balance;
+      `;
 
-        // Commission is typically 1% of stake
-        const stakeAmount = Number(buyPrice || profit || 1); 
-        calculatedCommission = stakeAmount * 0.01;
-        
-        // Save the trade receipt for the trading user
-        t.set(tradeRef, {
-          buyPrice: Number(buyPrice || 0),
-          profit: Number(profit || 0),
-          commission: calculatedCommission,
-          referrerId: referrerId || null,
-          timestamp: admin.firestore.FieldValue.serverTimestamp()
-        });
+      // Log processed trade
+      await sql`
+        INSERT INTO processed_trades (contractId, userId, profit, processedAt)
+        VALUES (${contractId.toString()}, ${userId}, ${profit}, ${Date.now()});
+      `;
 
-        // Increment the target's balance (Referrer or User)
-        t.set(targetRef, {
-          balance: admin.firestore.FieldValue.increment(calculatedCommission),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-      });
-
-      res.json({ success: true, commission: calculatedCommission, awardedTo: commissionTargetId });
+      res.json({ success: true, commission: earnings, awardedTo: commissionTargetId });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message || "Failed to record trade" });
+      console.error("Failed to process trade:", error);
+      res.status(500).json({ success: false, error: error.message || "Failed to process trade" });
     }
   });
 
