@@ -4,11 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "start": "tsx server.ts",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@google/genai": "^1.45.0",
@@ -36,6 +35,9 @@
     "tsx": "^4.21.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/plugin-syntax-jsx": "^7.29.7",
+    "@babel/preset-typescript": "^7.29.7",
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.19.0",
     "@types/node": "^25.3.0",
@@ -45,6 +47,7 @@
     "@types/react-dom": "^19.0.0",
     "@vercel/node": "^5.8.6",
     "@vitejs/plugin-react": "^4.3.4",
+    "glob": "^13.0.6",
     "regenerator-runtime": "^0.14.1",
     "typescript": "^5.7.3",
     "vite": "^6.0.0"
